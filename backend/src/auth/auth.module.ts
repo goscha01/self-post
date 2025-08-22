@@ -6,8 +6,11 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { BusinessProfileService } from './business-profile.service';
+import { OAuthDebugService } from './oauth-debug.service';
+import { FacebookApiService } from './facebook-api.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { FacebookStrategy } from './strategies/facebook.strategy';
 import { User } from '../entities';
 import { SocialProfile } from '../entities/social-profile.entity';
 
@@ -25,7 +28,7 @@ import { SocialProfile } from '../entities/social-profile.entity';
     TypeOrmModule.forFeature([User, SocialProfile]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, BusinessProfileService, JwtStrategy, GoogleStrategy],
-  exports: [AuthService, BusinessProfileService],
+  providers: [AuthService, BusinessProfileService, OAuthDebugService, FacebookApiService, JwtStrategy, GoogleStrategy, FacebookStrategy],
+  exports: [AuthService, BusinessProfileService, OAuthDebugService, FacebookApiService],
 })
 export class AuthModule {}

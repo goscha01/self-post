@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../entities';
 import { SocialProfile } from '../entities/social-profile.entity';
+import { FacebookApiService, FacebookPage } from './facebook-api.service';
 
 @Injectable()
 export class AuthService {
@@ -13,6 +14,7 @@ export class AuthService {
     @InjectRepository(SocialProfile)
     private socialProfileRepository: Repository<SocialProfile>,
     private jwtService: JwtService,
+    private facebookApiService: FacebookApiService,
   ) {}
 
   async findUserById(id: string): Promise<User | null> {
@@ -115,23 +117,55 @@ export class AuthService {
         console.log('✅ Created new Google Business Profile connection');
       }
 
-      // Validate that we have the necessary tokens for business operations
+      // Enhanced validation and error handling for missing refresh tokens
       if (!refreshToken) {
         console.warn('⚠️ No refresh token received - business operations may fail');
+        console.warn('🔍 Token Analysis:');
+        console.warn('🔍 - Access Token Present:', !!accessToken);
+        console.warn('🔍 - Access Token Length:', accessToken?.length || 0);
+        console.warn('🔍 - Refresh Token Present:', !!refreshToken);
+        console.warn('🔍 - Refresh Token Length:', refreshToken?.length || 0);
+        console.warn('🔍 - Profile Type:', profile?.provider || 'unknown');
+        console.warn('🔍 - User Email:', user.email);
+        console.warn('🔍 - Timestamp:', new Date().toISOString());
+        
+        // Log detailed error information for debugging
+        console.error('❌ REFRESH TOKEN MISSING - DETAILED ANALYSIS:');
+        console.error('❌ This will prevent offline access to Google Business Profile APIs');
+        console.error('❌ Possible causes:');
+        console.error('❌ 1. Google OAuth consent screen not configured for offline access');
+        console.error('❌ 2. User has already granted permissions (no consent screen shown)');
+        console.error('❌ 3. OAuth flow parameters not being sent correctly');
+        console.error('❌ 4. Google Cloud Console project settings issue');
+        console.error('❌ 5. OAuth consent screen not published or in testing mode');
+        console.error('❌ 6. User account restrictions or security policies');
+        console.error('❌ 7. OAuth app verification status issues');
+        console.error('🔧 Immediate debugging steps:');
+        console.error('🔧 - Check /auth/debug-google endpoint for configuration issues');
+        console.error('🔧 - Verify Google Cloud Console OAuth consent screen settings');
+        console.error('🔧 - Ensure "Access type" includes "Offline"');
+        console.error('🔧 - Check if consent screen is published or user is test user');
+        console.error('🔧 - Try /auth/force-fresh-consent/:email to reset OAuth state');
       }
       
-      // Final validation after saving
+      // Final validation after saving with enhanced logging
       console.log('🔍 Final validation after saving:');
       console.log('🔍 Stored access token length:', socialProfile.accessToken?.length || 0);
       console.log('🔍 Stored refresh token length:', socialProfile.refreshToken?.length || 0);
       console.log('🔍 Profile active:', socialProfile.isActive);
+      console.log('🔍 Profile ID:', socialProfile.id);
+      console.log('🔍 User ID:', user.id);
+      console.log('🔍 Timestamp:', new Date().toISOString());
       
       if (!socialProfile.refreshToken) {
         console.error('❌ CRITICAL: Refresh token still missing after saving to database!');
         console.error('❌ This suggests the token was never received from Google OAuth');
         console.error('❌ Check Google Cloud Console OAuth consent screen configuration');
+        console.error('❌ Use /auth/debug-google endpoint to diagnose configuration issues');
+        console.error('❌ Consider using /auth/force-fresh-consent/:email to reset OAuth state');
       } else {
         console.log('✅ SUCCESS: Refresh token successfully stored in database');
+        console.log('✅ Business profile operations should work correctly');
       }
 
       return {
@@ -590,6 +624,162 @@ export class AuthService {
     } catch (error) {
       console.error(`❌ Error clearing OAuth state:`, error);
       return { success: false, error: 'Failed to clear OAuth state' };
+    }
+  }
+
+  /**
+   * Store Facebook connection with pages
+   */
+  async storeFacebookConnection(profile: any, accessToken: string, pages: FacebookPage[]) {
+    try {
+      console.log('🔧 Storing Facebook connection for profile:', profile);
+      console.log('🔑 Access Token Length:', accessToken?.length || 0);
+      console.log('📄 Pages Count:', pages?.length || 0);
+      
+      // Find or create user
+      let user = await this.userRepository.findOne({ 
+        where: { email: profile.emails[0].value } 
+      });
+      
+      if (!user) {
+        user = this.userRepository.create({
+          email: profile.emails[0].value,
+          name: profile.displayName,
+          avatarUrl: profile.photos?.[0]?.value,
+        });
+        user = await this.userRepository.save(user);
+        console.log('✅ Created new user for Facebook:', user.id);
+      } else {
+        console.log('✅ Found existing user for Facebook:', user.id);
+      }
+
+      // Check if Facebook profile already exists
+      let socialProfile = await this.socialProfileRepository.findOne({
+        where: { user: { id: user.id }, platform: 'facebook' }
+      });
+
+      if (socialProfile) {
+        // Update existing profile
+        console.log('🔄 Updating existing Facebook profile...');
+        socialProfile.accessToken = accessToken;
+        socialProfile.platformUserId = profile.id;
+        socialProfile.profileData = { 
+          displayName: profile.displayName, 
+          emails: profile.emails, 
+          photos: profile.photos,
+          pages: pages.map(page => ({
+            id: page.id,
+            name: page.name,
+            access_token: page.access_token,
+            category: page.category,
+            tasks: page.tasks,
+            fan_count: page.fan_count,
+            verification_status: page.verification_status
+          }))
+        };
+        socialProfile.isActive = true;
+        
+        socialProfile = await this.socialProfileRepository.save(socialProfile);
+        console.log('✅ Updated existing Facebook connection');
+      } else {
+        // Create new profile
+        console.log('🆕 Creating new Facebook profile...');
+        socialProfile = this.socialProfileRepository.create({
+          user: { id: user.id },
+          platform: 'facebook',
+          platformUserId: profile.id,
+          profileData: { 
+            displayName: profile.displayName, 
+            emails: profile.emails, 
+            photos: profile.photos,
+            pages: pages.map(page => ({
+              id: page.id,
+              name: page.name,
+              access_token: page.access_token,
+              category: page.category,
+              tasks: page.tasks,
+              fan_count: page.fan_count,
+              verification_status: page.verification_status
+            }))
+          },
+          accessToken,
+          isActive: true,
+        });
+        
+        socialProfile = await this.socialProfileRepository.save(socialProfile);
+        console.log('✅ Created new Facebook connection');
+      }
+
+      return {
+        success: true,
+        profileId: socialProfile.id,
+        userEmail: user.email,
+        message: 'Facebook connection stored successfully',
+        pagesCount: pages.length
+      };
+    } catch (error) {
+      console.error('❌ Error storing Facebook connection:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get Facebook pages for a user
+   */
+  async getFacebookPages(email: string) {
+    try {
+      const user = await this.userRepository.findOne({ 
+        where: { email },
+        relations: ['socialProfiles']
+      });
+      
+      if (!user) {
+        return { error: 'User not found' };
+      }
+
+      const facebookProfile = user.socialProfiles?.find(profile => 
+        profile.platform === 'facebook' && profile.isActive
+      );
+
+      if (!facebookProfile || !facebookProfile.accessToken) {
+        return { error: 'Facebook profile not connected or no access token' };
+      }
+
+      // Get fresh pages from Facebook API
+      const pages = await this.facebookApiService.getPages(facebookProfile.accessToken);
+      
+      return {
+        success: true,
+        pages: pages,
+        count: pages.length
+      };
+    } catch (error) {
+      console.error('❌ Error fetching Facebook pages:', error);
+      return { error: error.message };
+    }
+  }
+
+  /**
+   * Get Facebook pages directly using an access token (for OAuth callback)
+   */
+  async getFacebookPagesDirect(accessToken: string) {
+    try {
+      console.log('🔍 Fetching Facebook pages directly with access token...');
+      
+      // Get fresh pages from Facebook API
+      const pages = await this.facebookApiService.getPages(accessToken);
+      
+      return {
+        success: true,
+        pages: pages,
+        count: pages.length
+      };
+    } catch (error) {
+      console.error('❌ Error fetching Facebook pages directly:', error);
+      return { error: error.message };
     }
   }
 }

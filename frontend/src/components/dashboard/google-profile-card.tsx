@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Building2, MapPin, Phone, Globe, Star, Clock, MessageSquare, FileText, Loader2, AlertTriangle, RefreshCw, ExternalLink } from 'lucide-react';
+import { API_ENDPOINTS, apiFetchJson } from '@/lib/api';
 
 interface BusinessAccount {
   name: string;
@@ -79,7 +80,7 @@ export function GoogleProfileCard() {
       const userEmail = localStorage.getItem('userEmail') || 'spotlesshomestampa@gmail.com';
       console.log('🔍 Fetching business accounts for email:', userEmail);
       
-      const response = await fetch(`http://localhost:3001/auth/business-accounts/${encodeURIComponent(userEmail)}`);
+      const response = await fetch(API_ENDPOINTS.BUSINESS_ACCOUNTS(userEmail));
       console.log('📡 Business accounts API response status:', response.status);
       
       if (response.ok) {
@@ -121,7 +122,7 @@ export function GoogleProfileCard() {
       const userEmail = localStorage.getItem('userEmail') || 'spotlesshomestampa@gmail.com';
       console.log('🔍 Fetching business profile for account:', accountName);
       
-      const response = await fetch(`http://localhost:3001/auth/business-profile/${encodeURIComponent(userEmail)}/${encodeURIComponent(accountName)}`);
+      const response = await fetch(API_ENDPOINTS.BUSINESS_PROFILE(userEmail, accountName));
       console.log('📡 Business profile API response status:', response.status);
       
       if (response.ok) {
@@ -158,7 +159,7 @@ export function GoogleProfileCard() {
       setError('Clearing OAuth state...');
       const userEmail = localStorage.getItem('userEmail') || 'spotlesshomestampa@gmail.com';
       
-      const response = await fetch(`http://localhost:3001/auth/force-fresh-consent/${encodeURIComponent(userEmail)}`, {
+      const response = await fetch(API_ENDPOINTS.FORCE_FRESH_CONSENT(userEmail), {
         method: 'POST',
       });
       

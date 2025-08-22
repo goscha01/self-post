@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Instagram, Twitter, Facebook, Linkedin, Youtube, ExternalLink, CheckCircle, Globe } from 'lucide-react';
+import { API_ENDPOINTS } from '@/lib/api';
 
 const platforms = [
   {
@@ -70,7 +71,7 @@ export function PlatformConnections() {
   const checkConnectionStatus = async (email: string) => {
     try {
       console.log('🔍 Checking connection status for email:', email);
-      const response = await fetch(`http://localhost:3001/auth/connections/${email}`);
+      const response = await fetch(API_ENDPOINTS.CONNECTIONS(email));
       console.log('📡 Connection API response status:', response.status);
       
       if (response.ok) {
@@ -109,7 +110,7 @@ export function PlatformConnections() {
     
     if (platformId === 'google') {
       // Redirect to Google OAuth
-      window.location.href = `http://localhost:3001/auth/google`;
+              window.location.href = API_ENDPOINTS.GOOGLE_AUTH;
     } else {
       // Simulate connection process for other platforms
       setTimeout(() => {
@@ -137,7 +138,7 @@ export function PlatformConnections() {
       const userEmail = localStorage.getItem('userEmail') || 'spotlesshomestampa@gmail.com';
       console.log(`🔌 Disconnecting from ${platformId} for user: ${userEmail}`);
       
-      const response = await fetch(`http://localhost:3001/auth/disconnect/${encodeURIComponent(userEmail)}/${platformId}`, {
+              const response = await fetch(API_ENDPOINTS.DISCONNECT(userEmail, platformId), {
         method: 'DELETE',
       });
       

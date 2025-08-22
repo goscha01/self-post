@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy } from 'passport-google-oauth20';
+import { Strategy } from 'passport-facebook';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
-export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
+export class FacebookStrategy extends PassportStrategy(Strategy, 'facebook') {
   constructor(private configService: ConfigService) {
-    const callbackURL = '/auth/google/oauth/callback';
+    const callbackURL = '/auth/facebook/oauth/callback';
     
     // Enhanced OAuth configuration with debugging
     const oauthConfig = {
@@ -14,47 +14,52 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       clientSecret: 'placeholder', // Will be replaced after super() call
       callbackURL: callbackURL,
       scope: [
-        'profile',
+        'public_profile',
         'email',
-        'https://www.googleapis.com/auth/business.manage'
+        'pages_manage_posts',
+        'pages_read_engagement',
+        'pages_show_list',
+        'business_management'
       ],
-      accessType: 'offline',
-      prompt: 'consent',
-      includeGrantedScopes: false // CRITICAL: Forces Google to treat this as fresh authorization, triggering refresh token issuance
+      profileFields: [
+        'id',
+        'displayName',
+        'name',
+        'emails',
+        'photos'
+      ]
     };
     
     super(oauthConfig);
     
     // Get credentials from environment variables after super() call
-    const clientID = this.configService.get<string>('GOOGLE_CLIENT_ID');
-    const clientSecret = this.configService.get<string>('GOOGLE_CLIENT_SECRET');
+    const clientID = this.configService.get<string>('FACEBOOK_APP_ID');
+    const clientSecret = this.configService.get<string>('FACEBOOK_APP_SECRET');
     
     // Validate required environment variables
     if (!clientID || !clientSecret) {
-      throw new Error('Google OAuth credentials not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.');
+      throw new Error('Facebook OAuth credentials not configured. Please set FACEBOOK_APP_ID and FACEBOOK_APP_SECRET environment variables.');
     }
     
     // Update the strategy with real credentials
     (this as any)._oauth2._clientId = clientID;
     (this as any)._oauth2._clientSecret = clientSecret;
     
-    console.log('🔧 Google Strategy initialized');
-    console.log('🆔 Client ID:', clientID ? 'Present (Environment)' : 'Missing (Environment)');
-    console.log('🔐 Client Secret:', clientSecret ? 'Present (Environment)' : 'Missing (Environment)');
+    console.log('🔧 Facebook Strategy initialized');
+    console.log('🆔 App ID:', clientID ? 'Present (Environment)' : 'Missing (Environment)');
+    console.log('🔐 App Secret:', clientSecret ? 'Present (Environment)' : 'Missing (Environment)');
     console.log('🎯 Callback URL:', callbackURL);
     console.log('📋 Scopes:', oauthConfig.scope);
-    console.log('🔑 Access Type:', oauthConfig.accessType);
-    console.log('📝 Prompt:', oauthConfig.prompt);
-    console.log('🔄 Include Granted Scopes:', oauthConfig.includeGrantedScopes);
+    console.log('📊 Profile Fields:', oauthConfig.profileFields);
     console.log('📊 Full OAuth Config:', JSON.stringify(oauthConfig, null, 2));
   }
 
-    async validate(accessToken: string, refreshToken: string, profile: any) {
+  async validate(accessToken: string, refreshToken: string, profile: any) {
     const requestId = Math.random().toString(36).substring(7);
     const timestamp = new Date().toISOString();
 
-    console.log(`=== GOOGLE STRATEGY VALIDATE [${requestId}] [${timestamp}] ===`);
-    console.log(`🔍 [${requestId}] Google Strategy - validate called`);
+    console.log(`=== FACEBOOK STRATEGY VALIDATE [${requestId}] [${timestamp}] ===`);
+    console.log(`🔍 [${requestId}] Facebook Strategy - validate called`);
     console.log(`📱 [${requestId}] Profile ID:`, profile?.id);
     console.log(`📱 [${requestId}] Profile Email:`, profile?.emails?.[0]?.value);
     console.log(`📱 [${requestId}] Profile Display Name:`, profile?.displayName);
@@ -76,23 +81,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       console.log(`🔄 [${requestId}] Refresh Token Valid:`, refreshToken.length > 50 ? 'Yes' : 'No (too short)');
       console.log(`✅ [${requestId}] SUCCESS: Refresh token received - offline access enabled!`);
     } else {
-      console.log(`❌ [${requestId}] CRITICAL: No refresh token received from Google OAuth!`);
-      console.log(`❌ [${requestId}] This will prevent offline access to Google Business Profile APIs`);
-      console.log(`❌ [${requestId}] Possible causes:`);
-      console.log(`❌ [${requestId}] 1. Google OAuth consent screen not configured for offline access`);
-      console.log(`❌ [${requestId}] 2. User has already granted permissions (no consent screen shown)`);
-      console.log(`❌ [${requestId}] 3. OAuth flow parameters not being sent correctly`);
-      console.log(`❌ [${requestId}] 4. Google Cloud Console project settings issue`);
-      console.log(`❌ [${requestId}] 5. OAuth consent screen not published or in testing mode`);
-      console.log(`❌ [${requestId}] 6. User account restrictions or security policies`);
-      console.log(`❌ [${requestId}] 7. OAuth app verification status issues`);
-      console.log(`🔧 [${requestId}] Debugging steps:`);
-      console.log(`🔧 [${requestId}]   - Check Google Cloud Console OAuth consent screen`);
-      console.log(`🔧 [${requestId}]   - Verify "Access type" includes "Offline"`);
-      console.log(`🔧 [${requestId}]   - Check if consent screen is published or user is test user`);
-      console.log(`🔧 [${requestId}]   - Check if user has already granted permissions before`);
-      console.log(`🔧 [${requestId}]   - Verify OAuth app verification status`);
-      console.log(`🔧 [${requestId}]   - Check user account security settings`);
+      console.log(`⚠️ [${requestId}] Note: Facebook typically doesn't provide refresh tokens`);
+      console.log(`⚠️ [${requestId}] Access tokens are long-lived (60 days) and can be extended`);
+      console.log(`⚠️ [${requestId}] This is normal Facebook OAuth behavior`);
     }
 
     // Log the exact return object for debugging
