@@ -10,8 +10,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     
     // Enhanced OAuth configuration with debugging
     const oauthConfig = {
-      clientID: '', // Will be set from environment variable
-      clientSecret: '', // Will be set from environment variable
+      clientID: 'placeholder', // Will be replaced after super() call
+      clientSecret: 'placeholder', // Will be replaced after super() call
       callbackURL: callbackURL,
       scope: [
         'profile',
@@ -33,8 +33,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       throw new Error('Google OAuth credentials not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.');
     }
     
-    oauthConfig.clientID = clientID;
-    oauthConfig.clientSecret = clientSecret;
+    // Update the strategy with real credentials
+    (this as any)._oauth2._clientId = clientID;
+    (this as any)._oauth2._clientSecret = clientSecret;
     
     console.log('🔧 Google Strategy initialized');
     console.log('🆔 Client ID:', clientID ? 'Present (Environment)' : 'Missing (Environment)');
