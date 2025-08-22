@@ -1,0 +1,2 @@
+[33m7101dd0[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m Security: Remove hardcoded OAuth credentials and use environment variables
+[33m78c86f7[m Initial commit: Post-It Social Media Automation Platform with Google Business Profile integration
