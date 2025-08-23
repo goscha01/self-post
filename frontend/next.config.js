@@ -20,6 +20,8 @@ const nextConfig = {
   },
   // Ensure proper static export
   distDir: 'out',
+  // Ensure public files are copied
+  assetPrefix: '',
 }
 
 module.exports = nextConfig

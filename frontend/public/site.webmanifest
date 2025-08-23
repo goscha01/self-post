@@ -1,0 +1,17 @@
+{
+  "name": "Post-It - Social Media Management",
+  "short_name": "Post-It",
+  "description": "Manage your social media accounts and business profiles in one place",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#5170ff",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
