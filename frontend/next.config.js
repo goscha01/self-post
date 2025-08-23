@@ -11,6 +11,12 @@ const nextConfig = {
   experimental: {
     appDir: true,
   },
+  // Output static files for production
+  output: 'standalone',
+  // Disable image optimization for Railway
+  images: {
+    unoptimized: true,
+  },
 }
 
 module.exports = nextConfig
