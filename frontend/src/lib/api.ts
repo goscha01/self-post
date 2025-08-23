@@ -3,7 +3,7 @@
 const API_BASE_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001');
 
 export const API_ENDPOINTS = {
-  // Auth endpoints
+  // Auth endpoints (no /api prefix)
   GOOGLE_AUTH: `${API_BASE_URL}/auth/google`,
   GOOGLE_CALLBACK: `${API_BASE_URL}/auth/google/oauth/callback`,
   FACEBOOK_AUTH: `${API_BASE_URL}/auth/facebook`,
@@ -14,17 +14,17 @@ export const API_ENDPOINTS = {
   FORCE_FRESH_CONSENT: (email: string) =>
     `${API_BASE_URL}/auth/force-fresh-consent/${encodeURIComponent(email)}`,
 
-  // Business profile endpoints
+  // Business profile endpoints (no /api prefix - these are auth routes)
   BUSINESS_ACCOUNTS: (email: string) =>
     `${API_BASE_URL}/auth/business-accounts/${encodeURIComponent(email)}`,
   BUSINESS_PROFILE: (email: string, accountName: string) =>
     `${API_BASE_URL}/auth/business-profile/${encodeURIComponent(email)}/${encodeURIComponent(accountName)}`,
 
-  // Facebook endpoints
+  // Facebook endpoints (no /api prefix - these are auth routes)
   FACEBOOK_PAGES: (email: string) =>
     `${API_BASE_URL}/auth/facebook/pages/${encodeURIComponent(email)}`,
 
-  // Debug endpoints
+  // Debug endpoints (no /api prefix - these are auth routes)
   DEBUG_GOOGLE: `${API_BASE_URL}/auth/debug-google`,
   DEBUG_FACEBOOK: `${API_BASE_URL}/auth/debug/facebook`,
   DEBUG_FACEBOOK_PAGES: (email: string) =>
