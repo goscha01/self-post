@@ -12,9 +12,6 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Set global prefix for API routes
-  app.setGlobalPrefix('api');
-
   // Serve static frontend files
   app.useStaticAssets(join(__dirname, '..', 'frontend', '.next'), {
     prefix: '/_next/',
@@ -24,22 +21,22 @@ async function bootstrap() {
     prefix: '/',
   });
 
-  // Serve frontend for all non-API routes
-  app.use('/', (req, res, next) => {
+  // Simple catch-all route for frontend (after all other routes)
+  app.use('*', (req, res) => {
     // Skip if it's an API route, auth route, or Next.js internal route
     if (req.url.startsWith('/api/') || 
         req.url.startsWith('/auth/') || 
         req.url.startsWith('/_next/') ||
         req.url.startsWith('/health')) {
-      return next();
+      return res.status(404).json({ message: 'Route not found' });
     }
     
     // For all other routes, serve the frontend
     try {
       res.sendFile(join(__dirname, '..', 'frontend', '.next', 'server', 'app', 'page.html'));
     } catch (error) {
-      // Fallback to layout.html if page.html doesn't exist
-      res.sendFile(join(__dirname, '..', 'frontend', '.next', 'server', 'app', 'layout.html'));
+      console.error('Error serving frontend:', error);
+      res.status(500).json({ message: 'Frontend not available' });
     }
   });
 
@@ -48,7 +45,5 @@ async function bootstrap() {
   
   console.log(`🚀 Application is running on: http://localhost:${port}`);
   console.log(`🌐 Frontend will be served from the same port`);
-  console.log(`🔧 API routes available at /api/*`);
-  console.log(`🔐 Auth routes available at /auth/*`);
 }
 bootstrap();

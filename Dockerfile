@@ -10,8 +10,6 @@ COPY backend/package*.json ./backend/
 COPY frontend/package*.json ./frontend/
 
 # Install dependencies
-COPY backend/package-lock.json ./backend/
-COPY frontend/package-lock.json ./frontend/
 RUN npm ci
 RUN cd backend && npm ci
 RUN cd frontend && npm ci
@@ -19,8 +17,10 @@ RUN cd frontend && npm ci
 # Copy source code
 COPY . .
 
-# Build both backend and frontend
+# Build backend first
 RUN npm run build:backend
+
+# Build frontend
 RUN npm run build:frontend
 
 # Create directory for frontend files in backend
@@ -29,6 +29,10 @@ RUN mkdir -p backend/dist/frontend
 # Copy built frontend files to backend
 RUN cp -r frontend/.next backend/dist/frontend/
 RUN cp -r frontend/public backend/dist/frontend/
+
+# Verify files are copied
+RUN ls -la backend/dist/frontend/
+RUN ls -la backend/dist/frontend/.next/
 
 # Expose port
 EXPOSE 3001
