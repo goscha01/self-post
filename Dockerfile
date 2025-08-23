@@ -29,8 +29,12 @@ RUN mkdir -p backend/dist/frontend
 # Copy exported static files to backend
 RUN cp -r frontend/out/* backend/dist/frontend/
 
+# Also copy to a simpler location for easier access
+RUN cp -r frontend/out/* backend/dist/
+
 # Verify files are copied
-RUN ls -la backend/dist/frontend/
+RUN ls -la backend/dist/
+RUN ls -la backend/dist/frontend/ || echo "frontend subdirectory not created"
 
 # Expose port
 EXPOSE 3001
