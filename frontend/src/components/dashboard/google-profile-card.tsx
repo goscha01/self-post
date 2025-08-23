@@ -27,33 +27,40 @@ interface BusinessLocation {
     averageRating: number;
     reviewCount: number;
   };
-  businessHours?: any;
-  serviceArea?: any;
-  categories?: any[];
-  labels?: any[];
-  attributes?: any;
-  regularHours?: any;
-  specialHours?: any;
-  openInfo?: any;
-  metadata?: any;
-  profile?: any;
-  relationshipData?: any;
-  moreHours?: any[];
-  priceLists?: any[];
-  services?: any[];
+  businessHours?: Record<string, unknown>;
+  serviceArea?: Record<string, unknown>;
+  categories?: string[];
+  labels?: string[];
+  attributes?: Record<string, unknown>;
+  regularHours?: Record<string, unknown>;
+  specialHours?: Record<string, unknown>;
+  openInfo?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  profile?: Record<string, unknown>;
+  relationshipData?: Record<string, unknown>;
+  moreHours?: Record<string, unknown>[];
+  priceLists?: Record<string, unknown>[];
+  services?: Record<string, unknown>[];
   latlng?: {
     latitude: number;
     longitude: number;
   };
-  adWordsLocationExtensions?: any;
+  adWordsLocationExtensions?: Record<string, unknown>;
 }
 
 interface BusinessProfileData {
   account: BusinessAccount;
   locations: BusinessLocation[];
-  reviews: any[];
-  posts: any[];
-  insights: any;
+  reviews: Record<string, unknown>[];
+  posts: Record<string, unknown>[];
+  insights: {
+    averageRating?: number;
+    totalPosts?: number;
+    postTypes?: string[];
+    languages?: string[];
+    mediaCount?: number;
+    [key: string]: unknown;
+  };
 }
 
 export function GoogleProfileCard() {
