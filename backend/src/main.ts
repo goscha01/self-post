@@ -15,24 +15,7 @@ async function bootstrap() {
   // Serve static frontend files
   app.useStaticAssets(join(__dirname, 'public'), {
     prefix: '/',
-  });
-
-  // Serve frontend for all non-API routes
-  app.use('*', (req, res, next) => {
-    // Skip if it's an API route, auth route, or static files
-    if (req.url.startsWith('/api/') || 
-        req.url.startsWith('/auth/') || 
-        req.url.startsWith('/health')) {
-      return next();
-    }
-    
-    // For all other routes, serve the frontend index.html
-    try {
-      res.sendFile(join(__dirname, 'public', 'index.html'));
-    } catch (error) {
-      console.error('Error serving frontend:', error);
-      res.status(500).json({ message: 'Frontend not available' });
-    }
+    index: 'index.html',
   });
 
   const port = process.env.PORT || 3001;

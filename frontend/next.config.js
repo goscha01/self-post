@@ -18,6 +18,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Ensure proper static export
+  distDir: 'out',
 }
 
 module.exports = nextConfig
