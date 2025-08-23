@@ -20,19 +20,17 @@ COPY . .
 # Build backend first
 RUN npm run build:backend
 
-# Build frontend
+# Build frontend with static export
 RUN npm run build:frontend
 
 # Create directory for frontend files in backend
 RUN mkdir -p backend/dist/frontend
 
-# Copy built frontend files to backend
-RUN cp -r frontend/.next backend/dist/frontend/
-RUN cp -r frontend/public backend/dist/frontend/
+# Copy exported static files to backend
+RUN cp -r frontend/out/* backend/dist/frontend/
 
 # Verify files are copied
 RUN ls -la backend/dist/frontend/
-RUN ls -la backend/dist/frontend/.next/
 
 # Expose port
 EXPOSE 3001
