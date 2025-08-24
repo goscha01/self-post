@@ -111,15 +111,15 @@ export function Calendar({ onDateClick }: CalendarProps) {
                 {day.getDate()}
               </div>
               
-              <button
+              <div
                 onClick={(e) => {
                   e.stopPropagation();
                   onDateClick(day);
                 }}
-                className="mt-1 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded"
+                className="mt-1 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded cursor-pointer"
               >
                 <Plus className="h-3 w-3" />
-              </button>
+              </div>
             </button>
           );
         })}

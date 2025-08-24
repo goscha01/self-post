@@ -8,9 +8,6 @@ const nextConfig = {
     // Temporarily ignore ESLint errors during build
     ignoreDuringBuilds: true,
   },
-  experimental: {
-    appDir: true,
-  },
   // Export static files for backend serving
   output: 'export',
   trailingSlash: true,
@@ -22,6 +19,12 @@ const nextConfig = {
   distDir: 'out',
   // Ensure public files are copied
   assetPrefix: '',
+  // Disable prefetching for static export
+  generateEtags: false,
+  // Optimize for static serving
+  poweredByHeader: false,
+  // Disable compression for static export
+  compress: false,
 }
 
 module.exports = nextConfig

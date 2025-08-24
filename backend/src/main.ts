@@ -12,10 +12,11 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Serve static frontend files
+  // Serve static frontend files with fallback to index.html
   app.useStaticAssets(join(__dirname, 'public'), {
     prefix: '/',
     index: 'index.html',
+    fallthrough: true,
   });
 
   const port = process.env.PORT || 3001;

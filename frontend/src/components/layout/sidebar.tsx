@@ -35,6 +35,7 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
+              prefetch={false}
               className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
                 isActive ? 'bg-blue-600' : 'hover:bg-gray-800'
               }`}
