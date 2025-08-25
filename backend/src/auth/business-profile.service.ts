@@ -348,18 +348,37 @@ export class BusinessProfileService {
   }
 
   private async getAccountLocations(accountName: string, accessToken: string): Promise<BusinessLocation[]> {
-    const response = await fetch(`https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch account locations: ${response.status}`);
+    try {
+      // Use only valid Google Business Profile API fields
+      const readMask = [
+        'name',
+        'title', 
+        'storefrontAddress',
+        'phoneNumbers',
+        'websiteUri',
+        'regularHours',
+        'categories',
+        'latlng'
+      ].join(',');
+  
+      const response = await fetch(`https://mybusinessaccountmanagement.googleapis.com/v1/${accountName}/locations?readMask=${readMask}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+  
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Business Profile API error: ${response.status} - ${errorText}`);
+        throw new Error(`Failed to fetch account locations: ${response.status} - ${errorText}`);
+      }
+  
+      const data = await response.json();
+      return data.locations || [];
+    } catch (error) {
+      console.error('Error fetching account locations:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    return data.locations || [];
   }
 
   private async getBusinessReviews(locations: BusinessLocation[], accessToken: string): Promise<any[]> {
@@ -367,7 +386,7 @@ export class BusinessProfileService {
     
     for (const location of locations) {
       try {
-        const response = await fetch(`https://mybusinessplaceactions.googleapis.com/v1/${location.name}/reviews`, {
+        const response = await fetch(`https://mybusinessaccountmanagement.googleapis.com/v1/${location.name}/reviews`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
           },
@@ -396,7 +415,7 @@ export class BusinessProfileService {
     
     for (const location of locations) {
       try {
-        const response = await fetch(`https://mybusinessplaceactions.googleapis.com/v1/${location.name}/localPosts`, {
+        const response = await fetch(`https://mybusinessaccountmanagement.googleapis.com/v1/${location.name}/localPosts`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
           },

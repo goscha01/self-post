@@ -16,11 +16,13 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       scope: [
         'profile',
         'email',
-        'https://www.googleapis.com/auth/business.manage'
+        'https://www.googleapis.com/auth/business.manage',
+        'https://www.googleapis.com/auth/plus.business.manage'
       ],
       accessType: 'offline',
       prompt: 'consent',
-      includeGrantedScopes: false // CRITICAL: Forces Google to treat this as fresh authorization, triggering refresh token issuance
+      includeGrantedScopes: false, // CRITICAL: Forces Google to treat this as fresh authorization
+      approvalPrompt: 'force' // Additional parameter to force consent screen
     };
     
     super(oauthConfig);
@@ -46,6 +48,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     console.log('🔑 Access Type:', oauthConfig.accessType);
     console.log('📝 Prompt:', oauthConfig.prompt);
     console.log('🔄 Include Granted Scopes:', oauthConfig.includeGrantedScopes);
+    console.log('🔒 Approval Prompt:', oauthConfig.approvalPrompt);
     console.log('📊 Full OAuth Config:', JSON.stringify(oauthConfig, null, 2));
   }
 

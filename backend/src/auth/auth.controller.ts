@@ -1,4 +1,4 @@
-import { Controller, UseGuards, Req, Get, Res, Param, Delete, Post, Body } from '@nestjs/common';
+import { Controller, UseGuards, Req, Get, Res, Param, Delete, Post, Body, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { BusinessProfileService } from './business-profile.service';
 import { OAuthDebugService } from './oauth-debug.service';
@@ -43,7 +43,7 @@ export class AuthController {
         refreshTokenLength: refreshToken?.length || 0,
         accessTokenType: typeof accessToken,
         refreshTokenType: typeof refreshToken,
-        profileKeys: profile ? Object.keys(profile) : [],
+        profileKeys: profile ? Object.keys(profile).length : 0,
         profileId: profile?.id,
         profileEmail: profile?.emails?.[0]?.value
       });
@@ -121,6 +121,98 @@ export class AuthController {
       console.log(`=== OAUTH CALLBACK COMPLETE [${requestId}] ===`);
       console.log(`⏰ End Time: ${endTime}`);
       console.log(`⏱️ Total Duration: ${new Date(endTime).getTime() - new Date(startTime).getTime()}ms`);
+    }
+  }
+
+  /**
+   * Direct OAuth callback endpoint for debug OAuth flow
+   */
+  @Get('google/oauth/callback/direct')
+  async directGoogleOAuthCallback(@Query('code') code: string, @Query('state') state: string, @Res() res: Response) {
+    try {
+      console.log('=== DIRECT OAUTH CALLBACK ===');
+      console.log('🔑 Authorization code received:', code);
+      console.log('🔑 State:', state);
+      
+      if (!code) {
+        console.error('❌ No authorization code received');
+        return res.redirect('/integration?error=no_code');
+      }
+      
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+      const redirectUri = process.env.GOOGLE_CALLBACK_URL;
+      
+      if (!clientId || !clientSecret || !redirectUri) {
+        console.error('❌ Missing OAuth configuration');
+        return res.redirect('/integration?error=config_missing');
+      }
+      
+      // Exchange authorization code for tokens
+      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: redirectUri,
+          code: code
+        }),
+      });
+      
+      if (!tokenResponse.ok) {
+        const errorText = await tokenResponse.text();
+        console.error('❌ Token exchange failed:', errorText);
+        return res.redirect('/integration?error=token_exchange_failed');
+      }
+      
+      const tokenData = await tokenResponse.json();
+      console.log('✅ Token exchange successful');
+      console.log('🔑 Access token present:', !!tokenData.access_token);
+      console.log('🔄 Refresh token present:', !!tokenData.refresh_token);
+      
+      if (!tokenData.refresh_token) {
+        console.error('❌ No refresh token received');
+        return res.redirect('/integration?error=no_refresh_token');
+      }
+      
+      // Get user profile using access token
+      const profileResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+        },
+      });
+      
+      if (!profileResponse.ok) {
+        console.error('❌ Failed to get user profile');
+        return res.redirect('/integration?error=profile_failed');
+      }
+      
+      const profile = await profileResponse.json();
+      console.log('✅ User profile retrieved:', profile.email);
+      
+      // Store the OAuth connection in database
+      const result = await this.authService.storeGoogleConnection(
+        profile, 
+        tokenData.access_token, 
+        tokenData.refresh_token
+      );
+      
+      if (result.success) {
+        console.log('✅ OAuth connection stored successfully');
+        // Redirect to frontend with success
+        return res.redirect('/integration?success=true&platform=google');
+      } else {
+        console.error('❌ Failed to store OAuth connection');
+        return res.redirect('/integration?error=storage_failed');
+      }
+      
+    } catch (error) {
+      console.error('❌ Direct OAuth callback error:', error);
+      return res.redirect('/integration?error=callback_error');
     }
   }
 
@@ -341,88 +433,7 @@ export class AuthController {
     }
   }
 
-  /**
-   * Detailed OAuth URL debugging with parameter breakdown
-   */
-  @Get('debug/oauth-url-detailed')
-  async debugOAuthUrlDetailed() {
-    try {
-      const clientId = process.env.GOOGLE_CLIENT_ID;
-      const callbackURL = process.env.GOOGLE_CALLBACK_URL;
-      const scopes = [
-        'profile',
-        'email',
-        'https://www.googleapis.com/auth/business.manage'
-      ];
-      
-      console.log('=== DETAILED OAUTH URL DEBUG ===');
-      console.log('🔧 Configuration values:');
-      console.log('🔧 - Client ID:', clientId ? 'Present' : 'Missing');
-      console.log('🔧 - Callback URL:', callbackURL || 'Missing');
-      console.log('🔧 - Scopes:', scopes);
-      console.log('🔧 - Access Type: offline');
-      console.log('🔧 - Prompt: consent');
-      console.log('🔧 - Include Granted Scopes: false (forces fresh authorization)');
-      
-      if (!clientId || !callbackURL) {
-        return {
-          success: false,
-          error: 'Missing OAuth configuration',
-          details: {
-            hasClientId: !!clientId,
-            hasCallbackUrl: !!callbackURL
-          }
-        };
-      }
-      
-      // Build OAuth URL manually for debugging
-      const url = `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${encodeURIComponent(clientId)}&` +
-        `redirect_uri=${encodeURIComponent(callbackURL)}&` +
-        `scope=${encodeURIComponent(scopes.join(' '))}&` +
-        `response_type=code&` +
-        `access_type=offline&` +
-        `prompt=consent&` +
-        `include_granted_scopes=false`;
-      
-      console.log('🔗 Generated OAuth URL:');
-      console.log('🔗 - Base:', 'https://accounts.google.com/o/oauth2/v2/auth');
-      console.log('🔗 - Client ID:', clientId);
-      console.log('🔗 - Redirect URI:', callbackURL);
-      console.log('🔗 - Scopes:', scopes.join(' '));
-      console.log('🔗 - Access Type: offline');
-      console.log('🔗 - Prompt: consent');
-      console.log('🔗 - Include Granted Scopes: false (forces fresh authorization)');
-      
-      return {
-        success: true,
-        url,
-        breakdown: {
-          client_id: clientId,
-          redirect_uri: callbackURL,
-          scopes: scopes,
-          access_type: 'offline',
-          prompt: 'consent',
-          include_granted_scopes: false
-        },
-        encodedUrl: url,
-        validation: {
-          hasClientId: !!clientId,
-          hasCallbackUrl: !!callbackURL,
-          clientIdLength: clientId?.length || 0,
-          callbackUrlLength: callbackURL?.length || 0,
-          scopesCount: scopes.length,
-          allScopesPresent: scopes.every(scope => scope.length > 0)
-        }
-      };
-    } catch (error: any) {
-      console.error('❌ Error in detailed OAuth URL debug:', error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
+
 
   /**
    * Enhanced token debugging with detailed analysis
@@ -609,6 +620,221 @@ export class AuthController {
     }
   }
 
+  @Get('debug/manual-token-exchange')
+  async manualTokenExchange(@Query('code') code: string) {
+    if (!code) {
+      return { error: 'Authorization code required' };
+    }
+
+    try {
+      const tokenResponse = await this.authService.exchangeCodeForTokens(code);
+      return {
+        success: true,
+        tokenResponse,
+        analysis: {
+          hasRefreshToken: !!tokenResponse.refresh_token,
+          refreshTokenLength: tokenResponse.refresh_token?.length || 0,
+          accessTokenLength: tokenResponse.access_token?.length || 0,
+          expiresIn: tokenResponse.expires_in,
+          tokenType: tokenResponse.token_type,
+          scope: tokenResponse.scope
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        stack: error.stack
+      };
+    }
+  }
+
+  /**
+   * Get OAuth authorization URL for Google Business Profile
+   */
+  @Get('oauth/authorize')
+  async getOAuthAuthorizationUrl() {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    // Use the existing callback URL that's already configured in Google Cloud Console
+    const redirectUri = process.env.GOOGLE_CALLBACK_URL;
+    
+    if (!clientId || !redirectUri) {
+      return { error: 'Missing environment variables' };
+    }
+
+    // Test multiple business-related scopes - ONLY VALID, CURRENT SCOPES
+    const scopeOptions = [
+      {
+        name: 'Basic Business (Current)',
+        scopes: ['profile', 'email', 'https://www.googleapis.com/auth/business.manage']
+      },
+      {
+        name: 'GMB Business Profile',
+        scopes: ['profile', 'email', 'https://www.googleapis.com/auth/business.manage', 'https://www.googleapis.com/auth/plus.business.manage']
+      },
+      {
+        name: 'Business Profile + My Business',
+        scopes: ['profile', 'email', 'https://www.googleapis.com/auth/business.manage', 'https://www.googleapis.com/auth/mybusiness.manage']
+      },
+      {
+        name: 'Full Business Access',
+        scopes: ['profile', 'email', 'https://www.googleapis.com/auth/business.manage', 'https://www.googleapis.com/auth/plus.business.manage', 'https://www.googleapis.com/auth/mybusiness.manage']
+      },
+      {
+        name: 'Minimal Business',
+        scopes: ['profile', 'email', 'https://www.googleapis.com/auth/business.manage']
+      }
+    ];
+
+    const results = scopeOptions.map(option => {
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        scope: option.scopes.join(' '),
+        response_type: 'code',
+        access_type: 'offline',
+        prompt: 'consent',
+        include_granted_scopes: 'false'
+      });
+
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+
+      return {
+        name: option.name,
+        scopes: option.scopes,
+        authUrl,
+        params: {
+          client_id: clientId,
+          redirect_uri: redirectUri,
+          scopes: option.scopes,
+          access_type: 'offline',
+          prompt: 'consent',
+          include_granted_scopes: 'false'
+        }
+      };
+    });
+
+    return {
+      scopeOptions: results,
+      environment: {
+        GOOGLE_CLIENT_ID: clientId ? '✅ Set' : '❌ Missing',
+        GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ? '✅ Set' : '❌ Missing',
+        GOOGLE_CALLBACK_URL: redirectUri ? '✅ Set' : '❌ Missing'
+      },
+      recommendation: 'Try the different scope options to see which one gives access to your business account. Start with "Business Account" or "Full Business Access".'
+    };
+  }
+
+  @Post('debug/test-raw-token-exchange')
+  async testRawTokenExchange(@Body() body: { code: string }) {
+    const { code } = body;
+    
+    if (!code) {
+      return { error: 'Authorization code required in request body' };
+    }
+
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = process.env.GOOGLE_CALLBACK_URL;
+
+    if (!clientId || !clientSecret || !redirectUri) {
+      return { 
+        error: 'Missing environment variables',
+        env: {
+          clientId: !!clientId,
+          clientSecret: !!clientSecret,
+          redirectUri: !!redirectUri
+        }
+      };
+    }
+
+    try {
+      // Direct HTTP request to Google's token endpoint
+      const tokenUrl = 'https://oauth2.googleapis.com/token';
+      const tokenData = new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code: code,
+        grant_type: 'authorization_code',
+        redirect_uri: redirectUri
+      });
+
+      console.log('🔍 Testing raw token exchange with Google...');
+      console.log('📡 Token URL:', tokenUrl);
+      console.log('📊 Request data:', {
+        client_id: clientId,
+        client_secret: '***HIDDEN***',
+        code: code.substring(0, 20) + '...',
+        grant_type: 'authorization_code',
+        redirect_uri: redirectUri
+      });
+
+      const response = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: tokenData.toString()
+      });
+
+      const responseText = await response.text();
+      console.log('📡 Google response status:', response.status);
+      console.log('📊 Google response headers:', Object.fromEntries(response.headers.entries()));
+      console.log('📄 Google response body:', responseText);
+
+      let responseJson;
+      try {
+        responseJson = JSON.parse(responseText);
+      } catch (e) {
+        return {
+          success: false,
+          error: 'Invalid JSON response from Google',
+          status: response.status,
+          responseText,
+          headers: Object.fromEntries(response.headers.entries())
+        };
+      }
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: 'Google OAuth error',
+          status: response.status,
+          googleError: responseJson,
+          requestData: {
+            client_id: clientId,
+            redirect_uri: redirectUri,
+            grant_type: 'authorization_code'
+          }
+        };
+      }
+
+      return {
+        success: true,
+        status: response.status,
+        tokenResponse: responseJson,
+        analysis: {
+          hasRefreshToken: !!responseJson.refresh_token,
+          refreshTokenLength: responseJson.refresh_token?.length || 0,
+          accessTokenLength: responseJson.access_token?.length || 0,
+          expiresIn: responseJson.expires_in,
+          tokenType: responseJson.token_type,
+          scope: responseJson.scope,
+          idToken: !!responseJson.id_token
+        },
+        headers: Object.fromEntries(response.headers.entries())
+      };
+
+    } catch (error) {
+      console.error('❌ Raw token exchange error:', error);
+      return {
+        success: false,
+        error: error.message,
+        stack: error.stack
+      };
+    }
+  }
+
   // ===== FACEBOOK OAUTH ENDPOINTS =====
 
   @Get('facebook')
@@ -764,6 +990,290 @@ export class AuthController {
     } catch (error: any) {
       console.error('❌ Error in Facebook pages debug:', error);
       return { success: false, error: error.message };
+    }
+  }
+
+  @Get('debug/test-business-access')
+  async testBusinessAccess() {
+    try {
+      // This will test what business accounts we can actually access
+      // with the current OAuth tokens
+      const userEmail = 'spotlesshomestampa@gmail.com'; // Hardcoded for testing
+      
+      // Use the correct endpoint that exists
+      const response = await fetch(`http://localhost:3001/auth/business-accounts/${userEmail}`);
+      const data = await response.json();
+      
+      return {
+        success: true,
+        businessAccountsResponse: data,
+        analysis: {
+          hasAccounts: data.success && data.accounts && data.accounts.length > 0,
+          accountCount: data.success ? (data.accounts?.length || 0) : 0,
+          accountTypes: data.success ? data.accounts?.map((acc: any) => acc.type) : [],
+          verificationStates: data.success ? data.accounts?.map((acc: any) => acc.verificationState) : [],
+          error: data.success ? null : data.error
+        },
+        recommendation: data.success && data.accounts?.length > 0 
+          ? 'Business accounts found! Check if any are BUSINESS type and VERIFIED.'
+          : 'No business accounts accessible. Try different OAuth scopes or check account permissions.'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        stack: error.stack
+      };
+    }
+  }
+
+  @Get('debug/check-all-account-types')
+  async checkAllAccountTypes() {
+    try {
+      // Test different Google APIs to see what accounts are accessible
+      const userEmail = 'spotlesshomestampa@gmail.com';
+      
+      const results: any = {
+        businessProfile: null,
+        adminDirectory: null,
+        userInfo: null,
+        drive: null,
+        gmail: null
+      };
+
+      // Test Business Profile API
+      try {
+        const businessResponse = await fetch(`http://localhost:3001/auth/business-accounts/${userEmail}`);
+        const businessData = await businessResponse.json();
+        results.businessProfile = businessData;
+      } catch (e) {
+        results.businessProfile = { error: e.message };
+      }
+
+      // Test Admin Directory API (if accessible)
+      try {
+        const adminResponse = await fetch(`https://admin.googleapis.com/admin/directory/v1/users?domain=spotlesshomestampa.com`, {
+          headers: {
+            'Authorization': `Bearer ${process.env.GOOGLE_ACCESS_TOKEN || 'NO_TOKEN'}`
+          }
+        });
+        const adminData = await adminResponse.json();
+        results.adminDirectory = adminData;
+      } catch (e) {
+        results.adminDirectory = { error: e.message };
+      }
+
+      // Test User Info API
+      try {
+        const userInfoResponse = await fetch(`https://www.googleapis.com/oauth2/v2/userinfo`, {
+          headers: {
+            'Authorization': `Bearer ${process.env.GOOGLE_ACCESS_TOKEN || 'NO_TOKEN'}`
+          }
+        });
+        const userInfoData = await userInfoResponse.json();
+        results.userInfo = userInfoData;
+      } catch (e) {
+        results.userInfo = { error: e.message };
+      }
+
+      return {
+        success: true,
+        accountCheckResults: results,
+        analysis: {
+          hasBusinessProfile: results.businessProfile?.success || false,
+          hasAdminAccess: !results.adminDirectory?.error || false,
+          hasUserInfo: !results.userInfo?.error || false,
+          accountTypes: {
+            business: results.businessProfile?.success || false,
+            admin: !results.adminDirectory?.error || false,
+            personal: !results.userInfo?.error || false
+          }
+        },
+        recommendation: 'This will help identify what types of Google accounts and APIs are accessible with your current OAuth tokens.'
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        stack: error.stack
+      };
+    }
+  }
+
+  @Get('debug/test-gmb-api')
+  async testGmbApi() {
+    try {
+      const userEmail = 'spotlesshomestampa@gmail.com';
+      
+      // Test different GMB API endpoints
+      const results: any = {
+        businessAccounts: null,
+        gmbLocations: null,
+        gmbPosts: null,
+        gmbReviews: null
+      };
+
+      // Test 1: Business Accounts (current endpoint)
+      try {
+        const businessResponse = await fetch(`http://localhost:3001/auth/business-accounts/${userEmail}`);
+        const businessData = await businessResponse.json();
+        results.businessAccounts = businessData;
+      } catch (e) {
+        results.businessAccounts = { error: e.message };
+      }
+
+      // Test 2: GMB Locations API (if accessible)
+      try {
+        // Try to access GMB locations directly
+        const gmbResponse = await fetch(`https://mybusiness.googleapis.com/v4/accounts`, {
+          headers: {
+            'Authorization': `Bearer ${process.env.GOOGLE_ACCESS_TOKEN || 'NO_TOKEN'}`
+          }
+        });
+        const gmbData = await gmbResponse.json();
+        results.gmbLocations = gmbData;
+      } catch (e) {
+        results.gmbLocations = { error: e.message };
+      }
+
+      // Test 3: GMB Posts API
+      try {
+        const postsResponse = await fetch(`https://mybusiness.googleapis.com/v4/accounts/109194636448236279020/locations`, {
+          headers: {
+            'Authorization': `Bearer ${process.env.GOOGLE_ACCESS_TOKEN || 'NO_TOKEN'}`
+          }
+        });
+        const postsData = await postsResponse.json();
+        results.gmbPosts = postsData;
+      } catch (e) {
+        results.gmbPosts = { error: e.message };
+      }
+
+      // Test 4: GMB Reviews API
+      try {
+        const reviewsResponse = await fetch(`https://mybusiness.googleapis.com/v4/accounts/109194636448236279020/locations`, {
+          headers: {
+            'Authorization': `Bearer ${process.env.GOOGLE_ACCESS_TOKEN || 'NO_TOKEN'}`
+          }
+        });
+        const reviewsData = await reviewsResponse.json();
+        results.gmbReviews = reviewsData;
+      } catch (e) {
+        results.gmbReviews = { error: e.message };
+      }
+
+      return {
+        success: true,
+        gmbApiResults: results,
+        analysis: {
+          hasBusinessAccounts: results.businessAccounts?.success || false,
+          hasGmbAccess: !results.gmbLocations?.error || false,
+          hasGmbPosts: !results.gmbPosts?.error || false,
+          hasGmbReviews: !results.gmbReviews?.error || false,
+          accountId: '109194636448236279020'
+        },
+        recommendation: 'This will test direct access to GMB API endpoints to see if we can bypass the Business Profile API restrictions.'
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        stack: error.stack
+      };
+    }
+  }
+
+  /**
+   * Debug OAuth callback endpoint for the working OAuth flow
+   */
+  @Get('debug/oauth/callback')
+  async debugOAuthCallback(@Query('code') code: string, @Query('state') state: string, @Res() res: Response) {
+    try {
+      console.log('=== DEBUG OAUTH CALLBACK ===');
+      console.log('🔑 Authorization code received:', code);
+      console.log('🔑 State:', state);
+      
+      if (!code) {
+        console.error('❌ No authorization code received');
+        return res.redirect('/integration?error=no_code');
+      }
+      
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+      const redirectUri = process.env.GOOGLE_CALLBACK_URL;
+      
+      if (!clientId || !clientSecret || !redirectUri) {
+        console.error('❌ Missing OAuth configuration');
+        return res.redirect('/integration?error=config_missing');
+      }
+      
+      // Exchange authorization code for tokens
+      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: redirectUri,
+          code: code
+        }),
+      });
+      
+      if (!tokenResponse.ok) {
+        const errorText = await tokenResponse.text();
+        console.error('❌ Token exchange failed:', errorText);
+        return res.redirect('/integration?error=token_exchange_failed');
+      }
+      
+      const tokenData = await tokenResponse.json();
+      console.log('✅ Token exchange successful');
+      console.log('🔑 Access token present:', !!tokenData.access_token);
+      console.log('🔄 Refresh token present:', !!tokenData.refresh_token);
+      
+      if (!tokenData.refresh_token) {
+        console.error('❌ No refresh token received');
+        return res.redirect('/integration?error=no_refresh_token');
+      }
+      
+      // Get user profile using access token
+      const profileResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+        },
+      });
+      
+      if (!profileResponse.ok) {
+        console.error('❌ Failed to get user profile');
+        return res.redirect('/integration?error=profile_failed');
+      }
+      
+      const profile = await profileResponse.json();
+      console.log('✅ User profile retrieved:', profile.email);
+      
+      // Store the OAuth connection in database
+      const result = await this.authService.storeGoogleConnection(
+        profile, 
+        tokenData.access_token, 
+        tokenData.refresh_token
+      );
+      
+      if (result.success) {
+        console.log('✅ OAuth connection stored successfully');
+        // Redirect to frontend with success
+        return res.redirect('/integration?success=true&platform=google');
+      } else {
+        console.error('❌ Failed to store OAuth connection');
+        return res.redirect('/integration?error=storage_failed');
+      }
+      
+    } catch (error) {
+      console.error('❌ Debug OAuth callback error:', error);
+      return res.redirect('/integration?error=callback_error');
     }
   }
 }

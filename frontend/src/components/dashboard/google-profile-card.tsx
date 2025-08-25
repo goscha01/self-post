@@ -81,6 +81,15 @@ export function GoogleProfileCard() {
     fetchBusinessAccounts();
   }, []);
 
+  // Auto-fetch business profile data when business accounts are loaded
+  useEffect(() => {
+    if (businessAccounts.length > 0 && !selectedBusiness) {
+      // Automatically fetch business profile data for the first account
+      console.log('🚀 Auto-fetching business profile data for first account');
+      fetchBusinessProfile(businessAccounts[0].name);
+    }
+  }, [businessAccounts, selectedBusiness]);
+
   const fetchBusinessAccounts = async () => {
     try {
       setLoading(true);
@@ -159,6 +168,10 @@ export function GoogleProfileCard() {
   const handleRefresh = () => {
     setRefreshing(true);
     fetchBusinessAccounts();
+    // Also refresh business profile data if we have a selected business
+    if (selectedBusiness) {
+      fetchBusinessProfile(selectedBusiness.account.name);
+    }
   };
 
   const handleForceFreshConsent = async () => {
@@ -303,6 +316,19 @@ export function GoogleProfileCard() {
         </div>
       </div>
 
+      {/* Business Profile Data Loading State */}
+      {loadingBusiness && !selectedBusiness && (
+        <div className="bg-blue-50 rounded-lg p-6 mb-6">
+          <div className="text-center">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <h4 className="text-lg font-semibold text-gray-900 mb-2">Loading Business Profile Data</h4>
+            <p className="text-sm text-gray-600">
+              Fetching comprehensive business information including locations, reviews, hours, and more...
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Business Accounts Section */}
       {businessAccounts.length > 0 ? (
         <div className="space-y-4 mb-6">
@@ -310,7 +336,7 @@ export function GoogleProfileCard() {
           
           <div className="bg-blue-50 rounded-lg p-4">
             <p className="text-sm text-gray-700 mb-3">
-              You have access to {businessAccounts.length} business account(s). Select one to view detailed information.
+              Business profile data loads automatically. You have access to {businessAccounts.length} business account(s).
             </p>
             
             <div className="space-y-3">
@@ -330,14 +356,13 @@ export function GoogleProfileCard() {
                           {account.verificationState}
                         </span>
                       </div>
+                      {loadingBusiness && (
+                        <div className="flex items-center space-x-2 mt-2 text-sm text-blue-600">
+                          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                          <span>Loading business profile data...</span>
+                        </div>
+                      )}
                     </div>
-                    <button
-                      onClick={() => fetchBusinessProfile(account.name)}
-                      disabled={loadingBusiness}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm"
-                    >
-                      {loadingBusiness ? 'Loading...' : 'View Profile'}
-                    </button>
                   </div>
                 </div>
               ))}
@@ -592,6 +617,24 @@ export function GoogleProfileCard() {
               </pre>
             </div>
           </details>
+        </div>
+      )}
+
+      {/* Debug Information */}
+      {process.env.NODE_ENV === 'development' && businessAccounts.length > 0 && (
+        <div className="mt-6 p-4 bg-gray-100 rounded-lg">
+          <h4 className="font-semibold text-gray-700 mb-2">🔍 Debug Info (Development Only)</h4>
+          <div className="text-xs text-gray-600 space-y-1">
+            <div><strong>Account Type:</strong> {businessAccounts[0]?.type || 'Unknown'}</div>
+            <div><strong>Verification State:</strong> {businessAccounts[0]?.verificationState || 'Unknown'}</div>
+            <div><strong>Vetted State:</strong> {businessAccounts[0]?.vettedState || 'Unknown'}</div>
+            <div><strong>Account Name:</strong> {businessAccounts[0]?.accountName || 'Unknown'}</div>
+            <div><strong>Account ID:</strong> {businessAccounts[0]?.name || 'Unknown'}</div>
+          </div>
+          <div className="mt-2 text-xs text-gray-500">
+            <strong>Note:</strong> PERSONAL accounts cannot access Business Profile API. 
+            You need a verified business account.
+          </div>
         </div>
       )}
     </div>

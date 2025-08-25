@@ -782,4 +782,45 @@ export class AuthService {
       return { error: error.message };
     }
   }
+
+  async exchangeCodeForTokens(code: string) {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = process.env.GOOGLE_CALLBACK_URL;
+
+    if (!clientId || !clientSecret || !redirectUri) {
+      throw new Error('Missing Google OAuth environment variables');
+    }
+
+    try {
+      const tokenUrl = 'https://oauth2.googleapis.com/token';
+      const tokenData = new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code: code,
+        grant_type: 'authorization_code',
+        redirect_uri: redirectUri
+      });
+
+      const response = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: tokenData.toString()
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Google OAuth error: ${response.status} - ${errorText}`);
+      }
+
+      const tokenResponse = await response.json();
+      return tokenResponse;
+
+    } catch (error) {
+      console.error('❌ Token exchange error:', error);
+      throw error;
+    }
+  }
 }
