@@ -23,13 +23,29 @@ interface BusinessLocation {
     primaryPhone: string;
   };
   websiteUri?: string;
-  rating?: {
-    averageRating: number;
-    reviewCount: number;
-  };
+  rating?: number;
+  reviewCount?: number;
   businessHours?: Record<string, unknown>;
-  serviceArea?: Record<string, unknown>;
-  categories?: string[];
+  serviceArea?: {
+    businessType: string;
+    places?: {
+      placeInfos: Array<{
+        placeName: string;
+        placeId: string;
+      }>;
+    };
+    regionCode: string;
+  };
+  categories?: {
+    primaryCategory?: {
+      name: string;
+      displayName: string;
+      serviceTypes?: Array<{
+        serviceTypeId: string;
+        displayName: string;
+      }>;
+    };
+  };
   labels?: string[];
   attributes?: Record<string, unknown>;
   regularHours?: Record<string, unknown>;
@@ -46,6 +62,9 @@ interface BusinessLocation {
     longitude: number;
   };
   adWordsLocationExtensions?: Record<string, unknown>;
+  profileImageUri?: string;
+  parsedHours?: string;
+  parsedServiceArea?: string;
 }
 
 interface BusinessProfileData {
@@ -144,6 +163,7 @@ export function GoogleProfileCard() {
       if (response.ok) {
         const data = await response.json();
         console.log('📊 Business profile data received:', data);
+        console.log('📊 Full business profile data:', JSON.stringify(data, null, 2));
         
         if (data.success) {
           setSelectedBusiness(data.data);
@@ -423,15 +443,34 @@ export function GoogleProfileCard() {
           {/* Business Locations */}
           {selectedBusiness.locations.map((location, index) => (
             <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
+              {/* Profile Picture */}
+              <div className="flex justify-center mb-4">
+                {location.profileImageUri ? (
+                  <img 
+                    src={location.profileImageUri} 
+                    alt={`${location.title} profile`}
+                    className="w-24 h-24 rounded-lg object-cover border-2 border-gray-200"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-lg bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center border-2 border-gray-200">
+                    <Building2 className="h-12 w-12 text-white" />
+                  </div>
+                )}
+              </div>
+              
               <div className="flex items-center justify-between mb-3">
                 <h5 className="text-lg font-semibold text-gray-900">{location.title}</h5>
-                {location.rating && (
+                {location.rating && location.reviewCount && (
                   <div className="flex items-center space-x-2">
                     <div className="flex items-center space-x-1">
                       <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                      <span className="text-sm font-medium text-gray-700">{location.rating.averageRating}</span>
+                      <span className="text-sm font-medium text-gray-700">{location.rating}</span>
                     </div>
-                    <span className="text-sm text-gray-500">({location.rating.reviewCount} reviews)</span>
+                    <span className="text-sm text-gray-500">({location.reviewCount} reviews)</span>
                   </div>
                 )}
               </div>
@@ -463,54 +502,73 @@ export function GoogleProfileCard() {
               </div>
 
               {/* Business Hours */}
-              {location.regularHours && (
+              {location.parsedHours && (
                 <div className="bg-orange-50 rounded-lg p-3 mb-4">
                   <div className="flex items-center space-x-2 mb-2">
                     <Clock className="h-4 w-4 text-orange-500" />
                     <span className="text-xs font-medium text-orange-600 uppercase tracking-wide">Business Hours</span>
                   </div>
-                  <div className="space-y-1 text-sm">
-                    {location.regularHours.periods?.map((period: any, periodIndex: number) => (
-                      <div key={periodIndex} className="flex justify-between">
-                        <span className="text-gray-700">
-                          {getDayName(period.open?.day)}
-                        </span>
-                        <span className="text-gray-600">
-                          {period.open?.time} - {period.close?.time}
-                        </span>
-                      </div>
-                    ))}
+                  <div className="text-sm text-gray-700">
+                    {location.parsedHours}
                   </div>
                 </div>
               )}
 
-              {/* Business Categories */}
-              {location.categories && location.categories.length > 0 && (
+              {/* Primary Category */}
+              {location.categories?.primaryCategory && (
                 <div className="bg-purple-50 rounded-lg p-3 mb-4">
-                  <div className="text-xs font-medium text-purple-600 uppercase tracking-wide mb-2">Business Categories</div>
-                  <div className="flex flex-wrap gap-2">
-                    {location.categories.map((category: any, catIndex: number) => (
-                      <span key={catIndex} className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
-                        {category.displayName || category.name}
-                      </span>
-                    ))}
+                  <div className="text-xs font-medium text-purple-600 uppercase tracking-wide mb-2">Primary Category</div>
+                  <div className="mb-3">
+                    <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+                      {location.categories.primaryCategory.displayName}
+                    </span>
                   </div>
+                  
+                  {/* Service Types */}
+                  {location.categories.primaryCategory.serviceTypes && location.categories.primaryCategory.serviceTypes.length > 0 && (
+                    <div className="mt-3">
+                      <div className="text-xs font-medium text-purple-700 mb-2">Service Types</div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {location.categories.primaryCategory.serviceTypes.map((serviceType: any, serviceIndex: number) => (
+                          <div key={serviceIndex} className="text-sm border-l-2 border-purple-200 pl-3">
+                            <div className="font-medium text-gray-900">{serviceType.displayName}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Business Services */}
-              {location.services && location.services.length > 0 && (
+              {/* Service Area */}
+              {location.serviceArea && (
                 <div className="bg-teal-50 rounded-lg p-3 mb-4">
-                  <div className="text-xs font-medium text-teal-600 uppercase tracking-wide mb-2">Services</div>
+                  <div className="text-xs font-medium text-teal-600 uppercase tracking-wide mb-2">Service Area</div>
                   <div className="space-y-2">
-                    {location.services.map((service: any, serviceIndex: number) => (
-                      <div key={serviceIndex} className="text-sm border-l-2 border-teal-200 pl-3">
-                        <div className="font-medium text-gray-900">{service.displayName || service.name}</div>
-                        {service.description && (
-                          <div className="text-gray-600 text-xs">{service.description}</div>
-                        )}
+                    <div className="text-sm">
+                      <span className="font-medium text-gray-900">Business Type:</span>{' '}
+                      <span className="text-gray-700">{location.serviceArea.businessType}</span>
+                    </div>
+                    
+                    {location.serviceArea.places?.placeInfos && location.serviceArea.places.placeInfos.length > 0 && (
+                      <div>
+                        <span className="font-medium text-gray-900">Serves:</span>
+                        <div className="mt-1 space-y-1">
+                          {location.serviceArea.places.placeInfos.map((place: any, placeIndex: number) => (
+                            <div key={placeIndex} className="text-sm text-gray-700 bg-white rounded px-2 py-1 border">
+                              📍 {place.placeName}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
+                    )}
+                    
+                    {location.serviceArea.regionCode && (
+                      <div className="text-sm">
+                        <span className="font-medium text-gray-900">Region:</span>{' '}
+                        <span className="text-gray-700">{location.serviceArea.regionCode}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -535,7 +593,7 @@ export function GoogleProfileCard() {
                   <div className="text-gray-600">Reviews</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-violet-600">{selectedBusiness.insights.averageRating.toFixed(1)}</div>
+                  <div className="text-2xl font-bold text-violet-600">{selectedBusiness.insights.averageRating?.toFixed(1) || 'N/A'}</div>
                   <div className="text-gray-600">Avg Rating</div>
                 </div>
               </div>
@@ -604,39 +662,7 @@ export function GoogleProfileCard() {
         </div>
       )}
 
-      {/* Debug Information - Only show in development */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="border-t border-gray-200 pt-4">
-          <details className="group">
-            <summary className="cursor-pointer text-sm font-medium text-gray-500 hover:text-gray-700">
-              Debug: Business Accounts Data
-            </summary>
-            <div className="mt-2 p-3 bg-gray-50 rounded-lg">
-              <pre className="text-xs text-gray-600 overflow-y-auto max-h-40">
-                {JSON.stringify({ businessAccounts, selectedBusiness }, null, 2)}
-              </pre>
-            </div>
-          </details>
-        </div>
-      )}
 
-      {/* Debug Information */}
-      {process.env.NODE_ENV === 'development' && businessAccounts.length > 0 && (
-        <div className="mt-6 p-4 bg-gray-100 rounded-lg">
-          <h4 className="font-semibold text-gray-700 mb-2">🔍 Debug Info (Development Only)</h4>
-          <div className="text-xs text-gray-600 space-y-1">
-            <div><strong>Account Type:</strong> {businessAccounts[0]?.type || 'Unknown'}</div>
-            <div><strong>Verification State:</strong> {businessAccounts[0]?.verificationState || 'Unknown'}</div>
-            <div><strong>Vetted State:</strong> {businessAccounts[0]?.vettedState || 'Unknown'}</div>
-            <div><strong>Account Name:</strong> {businessAccounts[0]?.accountName || 'Unknown'}</div>
-            <div><strong>Account ID:</strong> {businessAccounts[0]?.name || 'Unknown'}</div>
-          </div>
-          <div className="mt-2 text-xs text-gray-500">
-            <strong>Note:</strong> PERSONAL accounts cannot access Business Profile API. 
-            You need a verified business account.
-          </div>
-        </div>
-      )}
     </div>
   );
 }

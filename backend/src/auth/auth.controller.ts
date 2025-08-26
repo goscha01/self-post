@@ -725,6 +725,154 @@ export class AuthController {
     };
   }
 
+  @Get('debug/business-capabilities/:email')
+  async debugBusinessCapabilities(@Param('email') email: string) {
+    try {
+      return await this.businessProfileService.testApiCapabilities(email);
+    } catch (error) {
+      return { error: error.message };
+    }
+  }
+
+  @Get('test-endpoints/:email')
+  async testPostEndpoints(@Param('email') email: string) {
+    try {
+      const googleProfile = await this.businessProfileService.getActiveGoogleProfile(email);
+      if (!googleProfile?.refreshToken) {
+        return { error: 'No refresh token available', canPost: false };
+      }
+
+      const accessToken = await this.businessProfileService.refreshAccessToken(googleProfile.refreshToken);
+      
+      // Get the first available location dynamically
+      const accountsResponse = await fetch('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      
+      if (!accountsResponse.ok) {
+        return { error: 'Failed to fetch accounts', canPost: false };
+      }
+      
+      const accountsData = await accountsResponse.json();
+      const firstAccount = accountsData.accounts?.[0];
+      
+      if (!firstAccount) {
+        return { error: 'No business accounts found', canPost: false };
+      }
+      
+      // Get locations for the first account
+      const locationsResponse = await fetch(`https://mybusinessaccountmanagement.googleapis.com/v1/${firstAccount.name}/locations`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      
+      if (!locationsResponse.ok) {
+        return { error: 'Failed to fetch locations', canPost: false };
+      }
+      
+      const locationsData = await locationsResponse.json();
+      const firstLocation = locationsData.locations?.[0];
+      
+      if (!firstLocation) {
+        return { error: 'No locations found', canPost: false };
+      }
+
+      // Test all posting endpoints
+      const endpointResults = await this.businessProfileService.testPostsEndpoints(
+        firstLocation.name,
+        accessToken
+      );
+
+      return {
+        location: firstLocation.name,
+        account: firstAccount.name,
+        endpointResults
+      };
+    } catch (error) {
+      return {
+        error: error.message,
+        canPost: false
+      };
+    }
+  }
+
+  @Post('test-post/:email')
+  async testCreatePost(@Param('email') email: string, @Body() postData: any) {
+    try {
+      const googleProfile = await this.businessProfileService.getActiveGoogleProfile(email);
+      if (!googleProfile?.refreshToken) {
+        return { error: 'No refresh token available', canPost: false };
+      }
+
+      const accessToken = await this.businessProfileService.refreshAccessToken(googleProfile.refreshToken);
+      
+      // Use the business profile service to create a test post
+      try {
+        const testPostContent = {
+          message: 'Test post from API - Testing business profile integration',
+          postType: 'STANDARD' as const,
+          callToActionType: 'LEARN_MORE' as const,
+          callToActionUrl: 'https://www.spotless.homes/tampa-cleaning-service'
+        };
+
+        // Get the first available location dynamically
+        const accountsResponse = await fetch('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        
+        if (!accountsResponse.ok) {
+          return { error: 'Failed to fetch accounts', canPost: false };
+        }
+        
+        const accountsData = await accountsResponse.json();
+        const firstAccount = accountsData.accounts?.[0];
+        
+        if (!firstAccount) {
+          return { error: 'No business accounts found', canPost: false };
+        }
+        
+        // Get locations for the first account
+        const locationsResponse = await fetch(`https://mybusinessaccountmanagement.googleapis.com/v1/${firstAccount.name}/locations`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        
+        if (!locationsResponse.ok) {
+          return { error: 'Failed to fetch locations', canPost: false };
+        }
+        
+        const locationsData = await locationsResponse.json();
+        const firstLocation = locationsData.locations?.[0];
+        
+        if (!firstLocation) {
+          return { error: 'No locations found', canPost: false };
+        }
+
+        // Use the service method to create the post
+        const result = await this.businessProfileService.createBusinessPost(
+          firstLocation.name,
+          testPostContent,
+          email
+        );
+
+        return {
+          status: 200,
+          statusText: 'OK',
+          data: result,
+          canPost: true
+        };
+      } catch (error) {
+        return {
+          error: error.message,
+          canPost: false
+        };
+      }
+    } catch (error) {
+      return {
+        error: error.message,
+        canPost: false
+      };
+    }
+  }
+
   @Post('debug/test-raw-token-exchange')
   async testRawTokenExchange(@Body() body: { code: string }) {
     const { code } = body;
@@ -1274,6 +1422,243 @@ export class AuthController {
     } catch (error) {
       console.error('❌ Debug OAuth callback error:', error);
       return res.redirect('/integration?error=callback_error');
+    }
+  }
+
+  /**
+   * Test profile image fetching for a specific location
+   */
+  @Get('test-profile-image/:email')
+  async testProfileImage(@Param('email') email: string) {
+    try {
+      const locationName = 'locations/2141374650782668963';
+      const result = await this.businessProfileService.getLocationDetailsWithProfile(locationName, email);
+      
+      return {
+        success: true,
+        locationName,
+        profileData: {
+          hasProfile: !!result.profile,
+          hasProfileImageUri: !!result.profileImageUri,
+          profileImageUri: result.profileImageUri,
+          profileKeys: result.profile ? Object.keys(result.profile) : [],
+          fullProfile: result.profile
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        locationName: 'locations/2141374650782668963'
+      };
+    }
+  }
+
+  /**
+   * Debug location data from all endpoints to find profile image
+   */
+  @Get('debug-location-data/:email')
+  async debugLocationData(@Param('email') email: string) {
+    try {
+      // Test all three endpoints directly to see which one returns profile data
+      const googleProfile = await this.businessProfileService.getActiveGoogleProfile(email);
+      if (!googleProfile?.refreshToken) {
+        return { error: 'No refresh token available' };
+      }
+      
+      const accessToken = await this.businessProfileService.refreshAccessToken(googleProfile.refreshToken);
+      const locationName = 'locations/2141374650782668963';
+      
+      const endpoints = [
+        `https://mybusinessbusinessinformation.googleapis.com/v1/${locationName}?readMask=title,address,phoneNumbers,websiteUri,regularHours,categories,serviceArea,profile,rating,reviewCount`,
+        `https://mybusinessaccountmanagement.googleapis.com/v1/${locationName}`,
+        `https://mybusiness.googleapis.com/v4/accounts/109194636448236279020/locations/2141374650782668963`
+      ];
+      
+      const results: any[] = [];
+      
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(endpoint, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            results.push({
+              endpoint,
+              status: response.status,
+              hasProfile: !!data.profile,
+              hasLogoUri: !!data.logoUri,
+              profileKeys: data.profile ? Object.keys(data.profile) : [],
+              allKeys: Object.keys(data),
+              sampleData: {
+                title: data.title,
+                profile: data.profile,
+                logoUri: data.logoUri
+              }
+            });
+          } else {
+            results.push({
+              endpoint,
+              status: response.status,
+              error: await response.text()
+            });
+          }
+        } catch (error) {
+          results.push({
+            endpoint,
+            status: 'ERROR',
+            error: error.message
+          });
+        }
+      }
+      
+      return { success: true, results };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Test profile images fetching specifically
+   */
+  @Get('test-profile-images/:email')
+  async testProfileImages(@Param('email') email: string) {
+    try {
+      const locationName = 'locations/2141374650782668963';
+      const result = await this.businessProfileService.fetchProfileImages(locationName, email);
+      
+      return {
+        success: true,
+        locationName,
+        result
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        locationName: 'locations/2141374650782668963'
+      };
+    }
+  }
+
+  /**
+   * Step-by-step debug for profile image fetching
+   */
+  @Get('debug-profile-image-step/:email')
+  async debugProfileImageStep(@Param('email') email: string) {
+    try {
+      const locationName = 'locations/2141374650782668963';
+      
+      // Step 1: Get the user's Google profile
+      const googleProfile = await this.businessProfileService.getActiveGoogleProfile(email);
+      if (!googleProfile?.refreshToken) {
+        return { error: 'No refresh token available' };
+      }
+      
+      // Step 2: Refresh access token
+      const accessToken = await this.businessProfileService.refreshAccessToken(googleProfile.refreshToken);
+      
+      // Step 3: Test each endpoint individually with detailed logging
+      const endpoints = [
+        {
+          name: 'Business Information API',
+          url: `https://mybusinessbusinessinformation.googleapis.com/v1/${locationName}?readMask=title,address,phoneNumbers,websiteUri,regularHours,categories,serviceArea`
+        },
+        {
+          name: 'Account Management API',
+          url: `https://mybusinessaccountmanagement.googleapis.com/v1/${locationName}?readMask=name,title,storefrontAddress,phoneNumbers,websiteUri,regularHours,categories,serviceArea`
+        },
+        {
+          name: 'My Business API v4',
+          url: `https://mybusiness.googleapis.com/v4/accounts/109194636448236279020/locations/2141374650782668963`
+        }
+      ];
+      
+      const results: any[] = [];
+      
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`🔍 Testing ${endpoint.name}: ${endpoint.url}`);
+          
+          const response = await fetch(endpoint.url, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log(`✅ ${endpoint.name} succeeded`);
+            
+            // Analyze the response for profile image data
+            const analysis = {
+              endpoint: endpoint.name,
+              status: response.status,
+              hasProfile: !!data.profile,
+              hasLogoUri: !!data.logoUri,
+              hasImageUri: !!data.imageUri,
+              hasMedia: !!data.media,
+              profileKeys: data.profile ? Object.keys(data.profile) : [],
+              topLevelKeys: Object.keys(data),
+              profileImageUri: data.profile?.profileImageUri || null,
+              logoUri: data.profile?.logoUri || data.logoUri || null,
+              imageUri: data.profile?.imageUri || data.imageUri || null,
+              mediaCount: data.media?.length || 0,
+              sampleData: {
+                title: data.title,
+                profile: data.profile,
+                logoUri: data.logoUri,
+                imageUri: data.imageUri,
+                media: data.media ? data.media.slice(0, 2) : null // First 2 media items
+              }
+            };
+            
+            results.push(analysis);
+            console.log(`📊 Analysis for ${endpoint.name}:`, analysis);
+          } else {
+            const errorText = await response.text();
+            results.push({
+              endpoint: endpoint.name,
+              status: response.status,
+              error: errorText,
+              success: false
+            });
+            console.log(`❌ ${endpoint.name} failed: ${response.status} - ${errorText}`);
+          }
+        } catch (error) {
+          results.push({
+            endpoint: endpoint.name,
+            status: 'ERROR',
+            error: error.message,
+            success: false
+          });
+          console.log(`❌ ${endpoint.name} error:`, error.message);
+        }
+      }
+      
+      // Step 4: Test the dedicated media endpoint
+      console.log(`🔍 Testing dedicated media endpoint...`);
+      const mediaResult = await this.businessProfileService.fetchProfileImages(locationName, email);
+      
+      return {
+        success: true,
+        locationName,
+        endpointResults: results,
+        mediaEndpointResult: mediaResult,
+        summary: {
+          totalEndpoints: endpoints.length,
+          successfulEndpoints: results.filter(r => r.success !== false).length,
+          hasProfileImage: results.some(r => r.profileImageUri || r.logoUri || r.imageUri),
+          hasMedia: results.some(r => r.mediaCount > 0),
+          mediaEndpointSuccess: mediaResult.success
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        locationName: 'locations/2141374650782668963'
+      };
     }
   }
 }
