@@ -121,7 +121,10 @@ export function PlatformConnections() {
           
           // Handle different response structures
           let authUrl;
-          if (data.scopeOptions && data.scopeOptions[0] && data.scopeOptions[0].authUrl) {
+          if (data.oauthUrl) {
+            // Backend returns oauthUrl directly
+            authUrl = data.oauthUrl;
+          } else if (data.scopeOptions && data.scopeOptions[0] && data.scopeOptions[0].authUrl) {
             // Original expected structure
             authUrl = data.scopeOptions[0].authUrl;
           } else if (data.authUrl) {
@@ -235,7 +238,10 @@ export function PlatformConnections() {
           
           // Handle different response structures
           let authUrl;
-          if (data.scopeOptions && data.scopeOptions[0] && data.scopeOptions[0].authUrl) {
+          if (data.oauthUrl) {
+            // Backend returns oauthUrl directly
+            authUrl = data.oauthUrl;
+          } else if (data.scopeOptions && data.scopeOptions[0] && data.scopeOptions[0].authUrl) {
             // Original expected structure
             authUrl = data.scopeOptions[0].authUrl;
           } else if (data.authUrl) {
