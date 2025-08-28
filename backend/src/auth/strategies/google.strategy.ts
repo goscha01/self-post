@@ -6,7 +6,8 @@ import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(private configService: ConfigService) {
-    const callbackURL = '/auth/google/oauth/callback';
+    // Get the full callback URL from environment variables
+    const callbackURL = this.configService.get<string>('GOOGLE_CALLBACK_URL') || '/auth/google/oauth/callback';
     
     // Enhanced OAuth configuration with debugging
     const oauthConfig = {
