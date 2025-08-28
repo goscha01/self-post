@@ -1,6 +1,12 @@
 // API Configuration and utilities
-// In production, frontend and backend are served from the same domain
-const API_BASE_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001');
+// Always use the environment variable for API calls
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+// Debug logging to see what URL is being used
+console.log('🔍 API Configuration Debug:');
+console.log('🔍 NODE_ENV:', process.env.NODE_ENV);
+console.log('🔍 NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
+console.log('🔍 API_BASE_URL:', API_BASE_URL);
 
 export const API_ENDPOINTS = {
   // Auth endpoints (no /api prefix)

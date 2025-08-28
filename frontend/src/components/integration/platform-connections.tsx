@@ -113,7 +113,7 @@ export function PlatformConnections() {
       // Use the OAuth authorization endpoint
       try {
         console.log('🔍 Getting OAuth authorization URL...');
-        const response = await fetch('http://localhost:3001/auth/oauth/authorize');
+        const response = await fetch(API_ENDPOINTS.OAUTH_URL);
         
         if (response.ok) {
           const data = await response.json();
@@ -209,7 +209,7 @@ export function PlatformConnections() {
         // Use the OAuth authorization endpoint
         setConnecting(platformId);
         console.log('🔍 Getting OAuth authorization URL for fresh connection...');
-        const response = await fetch('http://localhost:3001/auth/oauth/authorize');
+        const response = await fetch(API_ENDPOINTS.OAUTH_URL);
         
         if (response.ok) {
           const data = await response.json();
