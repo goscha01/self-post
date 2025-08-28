@@ -6,14 +6,14 @@ import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(private configService: ConfigService) {
-    // Get the full callback URL from environment variables
-    const callbackURL = this.configService.get<string>('GOOGLE_CALLBACK_URL') || '/auth/google/oauth/callback';
+    // Use a default callback URL initially, will be updated after super() call
+    const defaultCallbackURL = '/auth/google/oauth/callback';
     
     // Enhanced OAuth configuration with debugging
     const oauthConfig = {
       clientID: 'placeholder', // Will be replaced after super() call
       clientSecret: 'placeholder', // Will be replaced after super() call
-      callbackURL: callbackURL,
+      callbackURL: defaultCallbackURL,
       scope: [
         'profile',
         'email',
@@ -31,15 +31,17 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     // Get credentials from environment variables after super() call
     const clientID = this.configService.get<string>('GOOGLE_CLIENT_ID');
     const clientSecret = this.configService.get<string>('GOOGLE_CLIENT_SECRET');
+    const callbackURL = this.configService.get<string>('GOOGLE_CALLBACK_URL') || defaultCallbackURL;
     
     // Validate required environment variables
     if (!clientID || !clientSecret) {
       throw new Error('Google OAuth credentials not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.');
     }
     
-    // Update the strategy with real credentials
+    // Update the strategy with real credentials and callback URL
     (this as any)._oauth2._clientId = clientID;
     (this as any)._oauth2._clientSecret = clientSecret;
+    (this as any)._callbackURL = callbackURL;
     
     console.log('🔧 Google Strategy initialized');
     console.log('🆔 Client ID:', clientID ? 'Present (Environment)' : 'Missing (Environment)');
