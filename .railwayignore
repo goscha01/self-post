@@ -1,0 +1,15 @@
+# Ignore frontend files for Railway deployment
+frontend/
+frontend/**
+
+# Ignore root-level frontend-related files
+vercel.json
+frontend/vercel.json
+
+# Keep backend and essential files
+!backend/
+!backend/**
+!railway.json
+!nixpacks.toml
+!package.json
+!package-lock.json

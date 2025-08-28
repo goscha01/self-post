@@ -8,23 +8,28 @@ const nextConfig = {
     // Temporarily ignore ESLint errors during build
     ignoreDuringBuilds: true,
   },
-  // Export static files for backend serving
-  output: 'export',
-  trailingSlash: true,
-  // Disable image optimization for static export
+  // Remove static export settings for Vercel deployment
+  // output: 'export',
+  // trailingSlash: true,
+  // distDir: 'out',
+  // assetPrefix: '',
+  // generateEtags: false,
+  // poweredByHeader: false,
+  // compress: false,
+  
+  // Keep image optimization for Vercel
   images: {
-    unoptimized: true,
+    unoptimized: false,
   },
-  // Ensure proper static export
-  distDir: 'out',
-  // Ensure public files are copied
-  assetPrefix: '',
-  // Disable prefetching for static export
-  generateEtags: false,
-  // Optimize for static serving
-  poweredByHeader: false,
-  // Disable compression for static export
-  compress: false,
+  
+  // Enable compression for Vercel
+  compress: true,
+  
+  // Enable prefetching for Vercel
+  generateEtags: true,
+  
+  // Add trailing slash for better routing
+  trailingSlash: false,
 }
 
 module.exports = nextConfig

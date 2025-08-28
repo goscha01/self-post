@@ -1,0 +1,21 @@
+# Ignore backend files for Vercel deployment
+../backend/
+../backend/**
+
+# Ignore Railway and other deployment files
+../railway.json
+../nixpacks.toml
+../.railwayignore
+
+# Ignore root package files
+../package.json
+../package-lock.json
+
+# Keep only frontend files
+!src/
+!public/
+!package.json
+!next.config.js
+!tsconfig.json
+!tailwind.config.js
+!postcss.config.mjs
