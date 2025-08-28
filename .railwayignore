@@ -6,6 +6,10 @@ frontend/**
 vercel.json
 frontend/vercel.json
 
+# Ignore Dockerfile (Railway uses nixpacks)
+Dockerfile
+Dockerfile.backup
+
 # Keep backend and essential files
 !backend/
 !backend/**
