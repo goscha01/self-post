@@ -104,7 +104,8 @@ export class AuthController {
       }
       
       if (result.success) {
-        const redirectUrl = `http://localhost:3000/integration/callback?success=true&platform=google&profile_id=${result.profileId}&email=${encodeURIComponent(result.userEmail || '')}`;
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const redirectUrl = `${frontendUrl}/integration/callback?success=true&platform=google&profile_id=${result.profileId}&email=${encodeURIComponent(result.userEmail || '')}`;
         console.log(`🎯 Redirecting to:`, redirectUrl);
         res.redirect(redirectUrl);
       } else {
@@ -114,7 +115,8 @@ export class AuthController {
       }
     } catch (error) {
       console.error(`❌ Error in Google OAuth callback [${requestId}]:`, error);
-      const redirectUrl = `http://localhost:3000/integration/callback?success=false&error=${encodeURIComponent('Failed to store connection')}`;
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const redirectUrl = `${frontendUrl}/integration/callback?success=false&error=${encodeURIComponent('Failed to store connection')}`;
       res.redirect(redirectUrl);
     } finally {
       const endTime = new Date().toISOString();
@@ -1662,3 +1664,4 @@ export class AuthController {
     }
   }
 }
+
