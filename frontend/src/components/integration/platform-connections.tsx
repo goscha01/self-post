@@ -117,8 +117,26 @@ export function PlatformConnections() {
         
         if (response.ok) {
           const data = await response.json();
-          // Use the first scope option (Basic Business) - EXACTLY what worked
-          const authUrl = data.scopeOptions[0].authUrl;
+          console.log('🔍 OAuth response data:', data);
+          
+          // Handle different response structures
+          let authUrl;
+          if (data.scopeOptions && data.scopeOptions[0] && data.scopeOptions[0].authUrl) {
+            // Original expected structure
+            authUrl = data.scopeOptions[0].authUrl;
+          } else if (data.authUrl) {
+            // Direct authUrl in response
+            authUrl = data.authUrl;
+          } else if (data.url) {
+            // Alternative field name
+            authUrl = data.url;
+          } else {
+            console.error('❌ Unexpected OAuth response structure:', data);
+            setConnecting(null);
+            setError('Unexpected OAuth response format from server');
+            return;
+          }
+          
           console.log('🔗 Redirecting to Google OAuth:', authUrl);
           window.location.href = authUrl;
         } else {
@@ -213,7 +231,26 @@ export function PlatformConnections() {
         
         if (response.ok) {
           const data = await response.json();
-          const authUrl = data.scopeOptions[0].authUrl;
+          console.log('🔍 OAuth response data for fresh connection:', data);
+          
+          // Handle different response structures
+          let authUrl;
+          if (data.scopeOptions && data.scopeOptions[0] && data.scopeOptions[0].authUrl) {
+            // Original expected structure
+            authUrl = data.scopeOptions[0].authUrl;
+          } else if (data.authUrl) {
+            // Direct authUrl in response
+            authUrl = data.authUrl;
+          } else if (data.url) {
+            // Alternative field name
+            authUrl = data.url;
+          } else {
+            console.error('❌ Unexpected OAuth response structure for fresh connection:', data);
+            setConnecting(null);
+            setError('Unexpected OAuth response format from server');
+            return;
+          }
+          
           console.log('🔗 Redirecting to working Google OAuth URL for fresh connection:', authUrl);
           window.location.href = authUrl;
         } else {
